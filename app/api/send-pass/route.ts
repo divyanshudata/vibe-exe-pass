@@ -1,243 +1,282 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import MailComposer from "nodemailer/lib/mail-composer";
 
-export async function POST(request: Request) {
+export async function POST(
+    request: NextRequest
+) {
     try {
+        // ==========================================================
+        // READ REQUEST
+        // ==========================================================
+
         const {
             email,
             studentName,
             passId,
-            passImage,
+            passImageUrl,
         } = await request.json();
 
-        // -----------------------------
-        // Validate request
-        // -----------------------------
-
-        if (!email || !studentName || !passId || !passImage) {
-            return NextResponse.json(
-                {
-                    success: false,
-                    message:
-                        "Missing email, student name, pass ID, or pass image.",
-                },
-                { status: 400 }
-            );
-        }
-
-        // -----------------------------
-        // Environment variables
-        // -----------------------------
-
-        const clientId = process.env.GOOGLE_CLIENT_ID;
-        const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-        const refreshToken = process.env.GMAIL_REFRESH_TOKEN;
-        const senderEmail = process.env.GMAIL_SENDER_EMAIL;
+        // ==========================================================
+        // VALIDATE REQUEST
+        // ==========================================================
 
         if (
-            !clientId ||
-            !clientSecret ||
-            !refreshToken ||
-            !senderEmail
+            !email ||
+            !studentName ||
+            !passId ||
+            !passImageUrl
         ) {
             return NextResponse.json(
                 {
                     success: false,
                     message:
-                        "Gmail environment variables are missing.",
+                        "Missing required information.",
                 },
-                { status: 500 }
+                {
+                    status: 400,
+                }
             );
         }
 
-        // -----------------------------
-        // Extract PNG from data URL
-        // -----------------------------
+        // ==========================================================
+        // VALIDATE SUPABASE URL
+        // ==========================================================
 
-        const base64Data = passImage.split(",")[1];
+        const supabaseUrl =
+            process.env.NEXT_PUBLIC_SUPABASE_URL;
 
-        if (!base64Data) {
+        if (!supabaseUrl) {
+            throw new Error(
+                "NEXT_PUBLIC_SUPABASE_URL is not configured."
+            );
+        }
+
+        /*
+         * Only allow the pass image to come from
+         * our own Supabase project.
+         *
+         * This prevents arbitrary external URLs
+         * from being downloaded by the server.
+         */
+
+        let imageUrl: URL;
+
+        try {
+            imageUrl =
+                new URL(passImageUrl);
+        } catch {
             return NextResponse.json(
                 {
                     success: false,
-                    message: "Invalid pass image.",
+                    message:
+                        "Invalid pass image URL.",
                 },
-                { status: 400 }
+                {
+                    status: 400,
+                }
             );
         }
 
-        const attachmentBuffer = Buffer.from(
-            base64Data,
-            "base64"
-        );
+        const allowedOrigin =
+            new URL(
+                supabaseUrl
+            ).origin;
 
-        // -----------------------------
-        // Create OAuth client
-        // -----------------------------
+        if (
+            imageUrl.origin !==
+            allowedOrigin
+        ) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    message:
+                        "Invalid pass image URL.",
+                },
+                {
+                    status: 400,
+                }
+            );
+        }
 
-        const oauth2Client = new google.auth.OAuth2(
-            clientId,
-            clientSecret,
-            process.env.GOOGLE_REDIRECT_URI
-        );
+        // ==========================================================
+        // DOWNLOAD FINAL PNG FROM SUPABASE STORAGE
+        // ==========================================================
+
+        const imageResponse =
+            await fetch(passImageUrl);
+
+        if (!imageResponse.ok) {
+            throw new Error(
+                `Could not download pass image. HTTP ${imageResponse.status}`
+            );
+        }
+
+        const imageArrayBuffer =
+            await imageResponse.arrayBuffer();
+
+        const attachmentBuffer =
+            Buffer.from(
+                imageArrayBuffer
+            );
+
+        // ==========================================================
+        // GMAIL ENVIRONMENT VARIABLES
+        // ==========================================================
+
+        const clientId =
+            process.env.GOOGLE_CLIENT_ID;
+
+        const clientSecret =
+            process.env.GOOGLE_CLIENT_SECRET;
+
+        const redirectUri =
+            process.env.GOOGLE_REDIRECT_URI;
+
+        const refreshToken =
+            process.env.GMAIL_REFRESH_TOKEN;
+
+        const senderEmail =
+            process.env.GMAIL_SENDER_EMAIL;
+
+        if (
+            !clientId ||
+            !clientSecret ||
+            !redirectUri ||
+            !refreshToken ||
+            !senderEmail
+        ) {
+            throw new Error(
+                "Gmail environment variables are missing."
+            );
+        }
+
+        // ==========================================================
+        // GOOGLE OAUTH
+        // ==========================================================
+
+        const oauth2Client =
+            new google.auth.OAuth2(
+                clientId,
+                clientSecret,
+                redirectUri
+            );
 
         oauth2Client.setCredentials({
-            refresh_token: refreshToken,
+            refresh_token:
+                refreshToken,
         });
 
-        // -----------------------------
-        // Create Gmail API client
-        // -----------------------------
+        // ==========================================================
+        // GMAIL API
+        // ==========================================================
 
-        const gmail = google.gmail({
-            version: "v1",
-            auth: oauth2Client,
-        });
+        const gmail =
+            google.gmail({
+                version: "v1",
+                auth: oauth2Client,
+            });
 
-        // -----------------------------
-        // Build MIME email
-        // -----------------------------
+        // ==========================================================
+        // CREATE EMAIL
+        // ==========================================================
 
-        const mail = new MailComposer({
-            from: `VIBE.EXE 2.0 <${senderEmail}>`,
-            to: email,
-            subject: "Your VIBE.EXE 2.0 Event Pass",
+        const mail =
+            new MailComposer({
+                from: senderEmail,
 
-            text: `
-Hello ${studentName},
+                to: email,
 
-Your VIBE.EXE 2.0 pass has been generated successfully.
+                subject:
+                    "Your VIBE.EXE 2.0 Event Pass",
+
+                text: `Hello ${studentName},
+
+Your VIBE.EXE 2.0 event pass is attached to this email.
 
 Pass ID: ${passId}
 
-Event:
-VIBE.EXE 2.0
-04 OCT 2026
-10:00 AM onwards
-Balle Balle Restaurant & Banquet
+Event: VIBE.EXE 2.0
+Date: 04 October 2026
+Time: 10:00 AM onwards
+Venue: Balle Balle Restaurant & Banquet
 
-Please find your pass attached to this email.
-
-Please keep this pass safe and present it at the event.
+Please keep this pass with you for entry.
 
 Regards,
-VIBE.EXE 2.0 Team
-      `.trim(),
+VIBE.EXE 2.0 Team`,
 
-            html: `
-        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-          <h2>🎟️ VIBE.EXE 2.0 Pass</h2>
+                attachments: [
+                    {
+                        filename:
+                            `${passId}.png`,
 
-          <p>Hello <strong>${studentName}</strong>,</p>
+                        content:
+                            attachmentBuffer,
 
-          <p>
-            Your VIBE.EXE 2.0 pass has been generated successfully.
-          </p>
+                        contentType:
+                            "image/png",
+                    },
+                ],
+            });
 
-          <p>
-            <strong>Pass ID:</strong> ${passId}
-          </p>
+        // ==========================================================
+        // BUILD MIME MESSAGE
+        // ==========================================================
 
-          <p>
-            <strong>Event:</strong> VIBE.EXE 2.0<br>
-            <strong>Date:</strong> 04 OCT 2026<br>
-            <strong>Time:</strong> 10:00 AM onwards<br>
-            <strong>Venue:</strong> Balle Balle Restaurant & Banquet
-          </p>
+        const message =
+            await mail
+                .compile()
+                .build();
 
-          <p>
-            Your official pass is attached to this email.
-          </p>
+        // Gmail requires URL-safe base64.
+        const encodedMessage =
+            message
+                .toString("base64")
+                .replace(/\+/g, "-")
+                .replace(/\//g, "_")
+                .replace(/=+$/, "");
 
-          <p>
-            Please keep the pass safe and present it at the event.
-          </p>
+        // ==========================================================
+        // SEND EMAIL
+        // ==========================================================
 
-          <p>
-            Regards,<br>
-            <strong>VIBE.EXE 2.0 Team</strong>
-          </p>
-        </div>
-      `,
-
-            attachments: [
-                {
-                    filename: `VIBE-EXE-2.0-${passId}.png`,
-                    content: attachmentBuffer,
-                    contentType: "image/png",
-                },
-            ],
-        });
-
-        // -----------------------------
-        // Convert MIME message to buffer
-        // -----------------------------
-
-        const messageBuffer = await new Promise<Buffer>(
-            (resolve, reject) => {
-                mail.compile().build((error, message) => {
-                    if (error) {
-                        reject(error);
-                    } else {
-                        resolve(message);
-                    }
-                });
-            }
-        );
-
-        // -----------------------------
-        // Gmail requires base64url
-        // -----------------------------
-
-        const rawMessage = messageBuffer
-            .toString("base64")
-            .replace(/\+/g, "-")
-            .replace(/\//g, "_")
-            .replace(/=+$/, "");
-
-        // -----------------------------
-        // Send through Gmail API
-        // -----------------------------
-
-        const result = await gmail.users.messages.send({
+        await gmail.users.messages.send({
             userId: "me",
+
             requestBody: {
-                raw: rawMessage,
+                raw: encodedMessage,
             },
         });
 
-        console.log(
-            "Gmail message sent:",
-            result.data.id
-        );
+        // ==========================================================
+        // SUCCESS
+        // ==========================================================
 
         return NextResponse.json({
             success: true,
-            message: "Pass email sent successfully.",
-            id: result.data.id,
+            message:
+                "Pass sent successfully.",
         });
 
-    } catch (error: any) {
+    } catch (error) {
         console.error(
-            "========== GMAIL SEND ERROR =========="
-        );
-
-        console.error(error);
-
-        console.error(
-            "======================================="
+            "SEND PASS ERROR:",
+            error
         );
 
         return NextResponse.json(
             {
                 success: false,
+
                 message:
-                    error?.response?.data?.error?.message ||
-                    error?.message ||
-                    "Failed to send email through Gmail.",
+                    error instanceof Error
+                        ? error.message
+                        : "Failed to send pass.",
             },
-            { status: 500 }
+            {
+                status: 500,
+            }
         );
     }
 }

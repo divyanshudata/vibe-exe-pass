@@ -20,24 +20,22 @@ export default function Home() {
   const [qrCode, setQrCode] = useState("");
   const [passId, setPassId] = useState("");
   const [generatedName, setGeneratedName] = useState("");
+  const [passImage, setPassImage] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  /*
-   * ============================================================
-   * CREATE HIGH-RESOLUTION PASS IMAGE
-   * ============================================================
-   *
-   * Preview design:
-   * 1600 × 900
-   *
-   * Email image:
-   * 3200 × 1800
-   *
-   * The visual design remains based on the 1600 × 900
-   * coordinate system.
-   */
+  // ============================================================
+  // CREATE FINAL PASS IMAGE
+  //
+  // This ONE image is used for:
+  // 1. Website preview
+  // 2. Supabase Storage
+  // 3. Gmail attachment
+  //
+  // Design: 1600 x 900
+  // Export: 3200 x 1800
+  // ============================================================
 
   async function createPassImage(
     studentName: string,
@@ -48,37 +46,26 @@ export default function Home() {
         const DESIGN_WIDTH = 1600;
         const DESIGN_HEIGHT = 900;
 
-        /*
-         * 2× resolution for the final PNG.
-         */
+        // 2x final resolution
         const SCALE = 2;
 
         const canvas = document.createElement("canvas");
 
-        canvas.width =
-          DESIGN_WIDTH * SCALE;
+        canvas.width = DESIGN_WIDTH * SCALE;
+        canvas.height = DESIGN_HEIGHT * SCALE;
 
-        canvas.height =
-          DESIGN_HEIGHT * SCALE;
-
-        const ctx =
-          canvas.getContext("2d");
+        const ctx = canvas.getContext("2d");
 
         if (!ctx) {
           reject(
-            new Error(
-              "Could not create canvas."
-            )
+            new Error("Could not create canvas.")
           );
-
           return;
         }
 
-        /*
-         * ========================================================
-         * LOAD FONT
-         * ========================================================
-         */
+        // ======================================================
+        // LOAD FONT
+        // ======================================================
 
         await document.fonts.ready;
 
@@ -90,328 +77,240 @@ export default function Home() {
           // Continue if font loading check fails.
         }
 
-        /*
-         * ========================================================
-         * LOAD PASS TEMPLATE
-         * ========================================================
-         */
+        // ======================================================
+        // LOAD PASS TEMPLATE
+        // ======================================================
 
-        const background =
-          new Image();
+        const background = new Image();
 
         background.onload = () => {
-          /*
-           * Draw background at high resolution.
-           */
+          try {
+            ctx.imageSmoothingEnabled = true;
 
-          ctx.imageSmoothingEnabled = true;
+            ctx.drawImage(
+              background,
+              0,
+              0,
+              DESIGN_WIDTH * SCALE,
+              DESIGN_HEIGHT * SCALE
+            );
 
-          ctx.drawImage(
-            background,
-            0,
-            0,
-            DESIGN_WIDTH * SCALE,
-            DESIGN_HEIGHT * SCALE
-          );
+            // ==================================================
+            // STUDENT NAME
+            //
+            // SAME POSITION AS ORIGINAL PREVIEW
+            //
+            // left: 5.5%
+            // top: 43.5%
+            // width: 47%
+            // height: 15%
+            // paddingLeft: 2.2%
+            // ==================================================
 
-          /*
-           * ======================================================
-           * STUDENT NAME
-           * ======================================================
-           *
-           * Same preview:
-           *
-           * left: 5.5%
-           * top: 43.5%
-           * width: 47%
-           * height: 15%
-           * paddingLeft: 2.2%
-           * Bubblegum Sans
-           */
+            const nameLeft =
+              DESIGN_WIDTH * 0.055;
 
-          const nameLeft =
-            DESIGN_WIDTH * 0.055;
+            const nameTop =
+              DESIGN_HEIGHT * 0.435;
 
-          const nameTop =
-            DESIGN_HEIGHT * 0.435;
+            const nameWidth =
+              DESIGN_WIDTH * 0.47;
 
-          const nameWidth =
-            DESIGN_WIDTH * 0.47;
+            const nameHeight =
+              DESIGN_HEIGHT * 0.15;
 
-          const nameHeight =
-            DESIGN_HEIGHT * 0.15;
+            const namePaddingLeft =
+              DESIGN_WIDTH * 0.022;
 
-          const namePaddingLeft =
-            DESIGN_WIDTH * 0.022;
+            const fontSize = 52 * SCALE;
 
-          /*
-           * 52px design font × 2.
-           */
+            const nameX =
+              (nameLeft + namePaddingLeft) *
+              SCALE;
 
-          const fontSize =
-            52 * SCALE;
+            const nameY =
+              (nameTop + nameHeight / 2) *
+              SCALE;
 
-          const nameX =
-            (nameLeft +
-              namePaddingLeft) *
-            SCALE;
+            const maxNameWidth =
+              (nameWidth - namePaddingLeft) *
+              SCALE;
 
-          const nameY =
-            (nameTop +
-              nameHeight / 2) *
-            SCALE;
+            ctx.save();
 
-          const maxNameWidth =
-            (nameWidth -
-              namePaddingLeft) *
-            SCALE;
+            ctx.font =
+              `800 ${fontSize}px ${bubblegum.style.fontFamily}`;
 
-          ctx.save();
+            ctx.fillStyle = "#111111";
 
-          ctx.font =
-            `400 ${fontSize}px ${bubblegum.style.fontFamily}`;
+            ctx.textBaseline = "middle";
 
-          ctx.fillStyle =
-            "#111111";
+            // Keep long names inside the original box.
+            let displayName = studentName;
 
-          ctx.textBaseline =
-            "middle";
-
-          /*
-           * Prevent very long names from
-           * overflowing the name box.
-           */
-
-          let displayName =
-            studentName;
-
-          while (
-            ctx.measureText(
-              displayName
-            ).width >
-            maxNameWidth &&
-            displayName.length > 3
-          ) {
-            displayName =
-              displayName.slice(
-                0,
-                -1
-              );
-          }
-
-          if (
-            displayName !==
-            studentName
-          ) {
             while (
-              ctx.measureText(
-                displayName + "..."
-              ).width >
+              ctx.measureText(displayName).width >
               maxNameWidth &&
               displayName.length > 3
             ) {
               displayName =
-                displayName.slice(
-                  0,
-                  -1
-                );
+                displayName.slice(0, -1);
             }
 
-            displayName += "...";
-          }
+            if (
+              displayName !== studentName
+            ) {
+              while (
+                ctx.measureText(
+                  displayName + "..."
+                ).width > maxNameWidth &&
+                displayName.length > 3
+              ) {
+                displayName =
+                  displayName.slice(0, -1);
+              }
 
-          ctx.fillText(
-            displayName,
-            nameX,
-            nameY
-          );
+              displayName += "...";
+            }
 
-          ctx.restore();
-
-          /*
-           * ======================================================
-           * QR CODE
-           * ======================================================
-           *
-           * Preview:
-           *
-           * left: 64.3%
-           * top: 61.8%
-           * width: 7%
-           *
-           * rotate(21.5deg)
-           * skewY(-5.6deg)
-           */
-
-          const qrContainerX =
-            DESIGN_WIDTH * 0.643;
-
-          const qrContainerY =
-            DESIGN_HEIGHT * 0.618;
-
-          const qrContainerSize =
-            DESIGN_WIDTH * 0.07;
-
-          /*
-           * 112px design size × 2.
-           */
-
-          const qrSize =
-            qrContainerSize;
-
-          const qrSizeHigh =
-            qrSize * SCALE;
-
-          const qrX =
-            qrContainerX * SCALE;
-
-          const qrY =
-            qrContainerY * SCALE;
-
-          const qrImage =
-            new Image();
-
-          qrImage.onload = () => {
-            /*
-             * Center of QR.
-             */
-
-            const centerX =
-              qrX +
-              qrSizeHigh / 2;
-
-            const centerY =
-              qrY +
-              qrSizeHigh / 2;
-
-            ctx.save();
-
-            /*
-             * Move to QR center.
-             */
-
-            ctx.translate(
-              centerX,
-              centerY
-            );
-
-            /*
-             * EXACT PREVIEW ROTATION
-             */
-
-            ctx.rotate(
-              (21.5 * Math.PI) /
-              180
-            );
-
-            /*
-             * EXACT PREVIEW SKEW
-             */
-
-            const skewY =
-              Math.tan(
-                (-5.6 * Math.PI) /
-                180
-              );
-
-            ctx.transform(
-              1,
-              skewY,
-              0,
-              1,
-              0,
-              0
-            );
-
-            /*
-             * Move back to QR top-left.
-             */
-
-            ctx.translate(
-              -qrSizeHigh / 2,
-              -qrSizeHigh / 2
-            );
-
-            /*
-             * ====================================================
-             * WHITE QR BACKGROUND
-             * ====================================================
-             */
-
-            ctx.imageSmoothingEnabled =
-              false;
-
-            ctx.fillStyle =
-              "#ffffff";
-
-            ctx.fillRect(
-              0,
-              0,
-              qrSizeHigh,
-              qrSizeHigh
-            );
-
-            /*
-             * ====================================================
-             * QR PADDING
-             * ====================================================
-             */
-
-            const qrPadding =
-              6 * SCALE;
-
-            /*
-             * ====================================================
-             * DRAW QR
-             * ====================================================
-             *
-             * No smoothing is used for the QR itself.
-             * This keeps the black/white modules sharp.
-             */
-
-            ctx.imageSmoothingEnabled =
-              false;
-
-            ctx.drawImage(
-              qrImage,
-              qrPadding,
-              qrPadding,
-              qrSizeHigh -
-              qrPadding * 2,
-              qrSizeHigh -
-              qrPadding * 2
+            ctx.fillText(
+              displayName,
+              nameX,
+              nameY
             );
 
             ctx.restore();
 
-            /*
-             * ====================================================
-             * FINAL PNG
-             * ====================================================
-             *
-             * 3200 × 1800
-             */
+            // ==================================================
+            // QR CODE
+            //
+            // SAME POSITION AS ORIGINAL PREVIEW
+            //
+            // left: 64.3%
+            // top: 61.8%
+            // width: 7%
+            // rotate: 21.5deg
+            // skewY: -5.6deg
+            // ==================================================
 
-            const finalImage =
-              canvas.toDataURL(
-                "image/png"
+            const qrLeft =
+              DESIGN_WIDTH * 0.643;
+
+            const qrTop =
+              DESIGN_HEIGHT * 0.618;
+
+            const qrSize =
+              DESIGN_WIDTH * 0.07;
+
+            const qrSizeHigh =
+              qrSize * SCALE;
+
+            const qrX =
+              qrLeft * SCALE;
+
+            const qrY =
+              qrTop * SCALE;
+
+            const qrImage = new Image();
+
+            qrImage.onload = () => {
+              try {
+                // Center of QR.
+                const centerX =
+                  qrX + qrSizeHigh / 2;
+
+                const centerY =
+                  qrY + qrSizeHigh / 2;
+
+                ctx.save();
+
+                // Same transform origin as preview.
+                ctx.translate(
+                  centerX,
+                  centerY
+                );
+
+                // Same CSS rotation.
+                ctx.rotate(
+                  (21.5 * Math.PI) / 180
+                );
+
+                // Same CSS skewY.
+                const skewY =
+                  Math.tan(
+                    (-5.6 * Math.PI) / 180
+                  );
+
+                ctx.transform(
+                  1,
+                  skewY,
+                  0,
+                  1,
+                  0,
+                  0
+                );
+
+                // Move to QR top-left.
+                ctx.translate(
+                  -qrSizeHigh / 2,
+                  -qrSizeHigh / 2
+                );
+
+                // White QR background.
+                ctx.fillStyle = "#ffffff";
+
+                ctx.fillRect(
+                  0,
+                  0,
+                  qrSizeHigh,
+                  qrSizeHigh
+                );
+
+                // Same padding as preview.
+                const qrPadding = 6 * SCALE;
+
+                // Keep QR modules sharp.
+                ctx.imageSmoothingEnabled =
+                  false;
+
+                ctx.drawImage(
+                  qrImage,
+                  qrPadding,
+                  qrPadding,
+                  qrSizeHigh -
+                  qrPadding * 2,
+                  qrSizeHigh -
+                  qrPadding * 2
+                );
+
+                ctx.restore();
+
+                // ==================================================
+                // FINAL 3200 × 1800 PNG
+                // ==================================================
+
+                const finalImage =
+                  canvas.toDataURL("image/png");
+
+                resolve(finalImage);
+
+              } catch (error) {
+                reject(error);
+              }
+            };
+
+            qrImage.onerror = () => {
+              reject(
+                new Error(
+                  "Could not load QR code."
+                )
               );
+            };
 
-            resolve(
-              finalImage
-            );
-          };
-
-          qrImage.onerror = () => {
-            reject(
-              new Error(
-                "Could not load QR code."
-              )
-            );
-          };
-
-          qrImage.src =
-            qrDataUrl;
+            qrImage.src = qrDataUrl;
+          } catch (error) {
+            reject(error);
+          }
         };
 
         background.onerror = () => {
@@ -431,17 +330,88 @@ export default function Home() {
     });
   }
 
-  /*
-   * ============================================================
-   * GENERATE PASS
-   * ============================================================
-   */
+  // ============================================================
+  // UPLOAD FINAL PNG TO SUPABASE STORAGE
+  // ============================================================
+
+  async function uploadPassImage(
+    imageDataUrl: string,
+    generatedPassId: string
+  ): Promise<string> {
+    // Convert base64 data URL to Blob.
+    const imageResponse =
+      await fetch(imageDataUrl);
+
+    if (!imageResponse.ok) {
+      throw new Error(
+        "Could not prepare pass image."
+      );
+    }
+
+    const imageBlob =
+      await imageResponse.blob();
+
+    const filePath =
+      `passes/${generatedPassId}.png`;
+
+    // Upload to private bucket.
+    const { error: uploadError } =
+      await supabase.storage
+        .from("pass-images")
+        .upload(
+          filePath,
+          imageBlob,
+          {
+            contentType: "image/png",
+            upsert: true,
+          }
+        );
+
+    if (uploadError) {
+      console.error(
+        "Storage upload error:",
+        uploadError
+      );
+
+      throw new Error(
+        `Could not upload pass image: ${uploadError.message}`
+      );
+    }
+
+    // Create temporary signed URL.
+    const {
+      data: signedUrlData,
+      error: signedUrlError,
+    } = await supabase.storage
+      .from("pass-images")
+      .createSignedUrl(
+        filePath,
+        600
+      );
+
+    if (
+      signedUrlError ||
+      !signedUrlData?.signedUrl
+    ) {
+      console.error(
+        "Signed URL error:",
+        signedUrlError
+      );
+
+      throw new Error(
+        "Could not create pass image URL."
+      );
+    }
+
+    return signedUrlData.signedUrl;
+  }
+
+  // ============================================================
+  // GENERATE PASS
+  // ============================================================
 
   async function generatePass() {
-    /*
-     * Validate fields.
-     */
-
+    // Validate form.
     if (
       !name.trim() ||
       !rollNumber.trim() ||
@@ -460,13 +430,12 @@ export default function Home() {
     setMessage("");
     setQrCode("");
     setPassId("");
+    setPassImage("");
 
     try {
-      /*
-       * ========================================================
-       * UNIQUE PASS ID
-       * ========================================================
-       */
+      // ========================================================
+      // UNIQUE PASS ID
+      // ========================================================
 
       const generatedPassId =
         "VX26-" +
@@ -475,20 +444,16 @@ export default function Home() {
           .substring(2, 10)
           .toUpperCase();
 
-      /*
-       * ========================================================
-       * UNIQUE QR TOKEN
-       * ========================================================
-       */
+      // ========================================================
+      // UNIQUE QR TOKEN
+      // ========================================================
 
       const qrToken =
         crypto.randomUUID();
 
-      /*
-       * ========================================================
-       * SAVE PASS IN SUPABASE
-       * ========================================================
-       */
+      // ========================================================
+      // SAVE PASS IN SUPABASE
+      // ========================================================
 
       const { error } =
         await supabase
@@ -544,13 +509,9 @@ export default function Home() {
         return;
       }
 
-      /*
-       * ========================================================
-       * GENERATE HIGH-RES QR
-       * ========================================================
-       *
-       * 1200 × 1200 source QR.
-       */
+      // ========================================================
+      // GENERATE HIGH-RESOLUTION QR
+      // ========================================================
 
       const qr =
         await QRCode.toDataURL(
@@ -558,14 +519,8 @@ export default function Home() {
           {
             width: 1200,
 
-            /*
-             * Keep the QR source crisp.
-             */
             margin: 1,
 
-            /*
-             * Highest error correction.
-             */
             errorCorrectionLevel:
               "H",
 
@@ -575,12 +530,6 @@ export default function Home() {
             },
           }
         );
-
-      /*
-       * ========================================================
-       * SHOW PASS PREVIEW
-       * ========================================================
-       */
 
       setQrCode(qr);
 
@@ -592,27 +541,51 @@ export default function Home() {
         name.trim()
       );
 
-      /*
-       * ========================================================
-       * CREATE EMAIL IMAGE
-       * ========================================================
-       */
+      // ========================================================
+      // CREATE ONE FINAL PASS IMAGE
+      // ========================================================
 
       setMessage(
         "Generating high-resolution pass..."
       );
 
-      const passImage =
+      const generatedPassImage =
         await createPassImage(
           name.trim(),
           qr
         );
 
       /*
-       * ========================================================
-       * SEND EMAIL
-       * ========================================================
+       * IMPORTANT:
+       *
+       * This exact image is used everywhere:
+       *
+       * Website preview
+       * Supabase Storage
+       * Gmail attachment
        */
+
+      setPassImage(
+        generatedPassImage
+      );
+
+      // ========================================================
+      // UPLOAD FINAL IMAGE
+      // ========================================================
+
+      setMessage(
+        "Uploading pass image..."
+      );
+
+      const passImageUrl =
+        await uploadPassImage(
+          generatedPassImage,
+          generatedPassId
+        );
+
+      // ========================================================
+      // SEND EMAIL
+      // ========================================================
 
       setMessage(
         "Sending pass to email..."
@@ -639,8 +612,8 @@ export default function Home() {
               passId:
                 generatedPassId,
 
-              passImage:
-                passImage,
+              passImageUrl:
+                passImageUrl,
             }),
           }
         );
@@ -648,11 +621,9 @@ export default function Home() {
       const emailResult =
         await emailResponse.json();
 
-      /*
-       * ========================================================
-       * EMAIL ERROR
-       * ========================================================
-       */
+      // ========================================================
+      // EMAIL ERROR
+      // ========================================================
 
       if (
         !emailResponse.ok ||
@@ -672,20 +643,15 @@ export default function Home() {
         return;
       }
 
-      /*
-       * ========================================================
-       * SUCCESS
-       * ========================================================
-       */
+      // ========================================================
+      // SUCCESS
+      // ========================================================
 
       setMessage(
         `✅ Pass generated and sent to ${email.trim()}`
       );
 
-      /*
-       * Clear form.
-       */
-
+      // Clear form.
       setName("");
       setRollNumber("");
       setBranch("");
@@ -699,7 +665,9 @@ export default function Home() {
       );
 
       setMessage(
-        "Something went wrong."
+        error instanceof Error
+          ? error.message
+          : "Something went wrong."
       );
 
     } finally {
@@ -707,20 +675,18 @@ export default function Home() {
     }
   }
 
-  /*
-   * ============================================================
-   * UI
-   * ============================================================
-   */
+  // ============================================================
+  // UI
+  // ============================================================
 
   return (
     <main className="min-h-screen bg-black text-white px-4 py-10">
 
       <div className="max-w-6xl mx-auto">
 
-        {/* ======================================================
+        {/* ====================================================
             HEADER
-            ====================================================== */}
+            ==================================================== */}
 
         <div className="text-center mb-10">
 
@@ -741,9 +707,9 @@ export default function Home() {
 
         </div>
 
-        {/* ======================================================
+        {/* ====================================================
             GENERATE FORM
-            ====================================================== */}
+            ==================================================== */}
 
         <div className="max-w-xl mx-auto bg-zinc-950 border border-zinc-800 rounded-2xl p-7">
 
@@ -769,9 +735,7 @@ export default function Home() {
                 type="text"
                 value={name}
                 onChange={(e) =>
-                  setName(
-                    e.target.value
-                  )
+                  setName(e.target.value)
                 }
                 placeholder="Enter student name"
                 className="w-full bg-black border border-zinc-700 rounded-lg px-4 py-3 outline-none focus:border-white"
@@ -870,9 +834,7 @@ export default function Home() {
             {/* BUTTON */}
 
             <button
-              onClick={
-                generatePass
-              }
+              onClick={generatePass}
               disabled={loading}
               className="w-full bg-white text-black font-bold py-3.5 rounded-lg hover:bg-gray-200 transition disabled:opacity-50"
             >
@@ -883,9 +845,7 @@ export default function Home() {
 
           </div>
 
-          {/* ====================================================
-              MESSAGE
-              ==================================================== */}
+          {/* MESSAGE */}
 
           {message && (
             <div className="mt-5 bg-zinc-900 border border-zinc-800 rounded-lg p-4 text-sm">
@@ -895,11 +855,11 @@ export default function Home() {
 
         </div>
 
-        {/* ======================================================
+        {/* ====================================================
             GENERATED PASS
-            ====================================================== */}
+            ==================================================== */}
 
-        {qrCode && passId && (
+        {passImage && passId && (
 
           <div className="mt-12">
 
@@ -916,171 +876,27 @@ export default function Home() {
             </div>
 
             {/* ==================================================
-                RESPONSIVE PREVIEW
+                IMPORTANT:
+                SHOW THE ACTUAL FINAL PNG.
+                
+                This is exactly the same image that is emailed.
                 ================================================== */}
 
             <div className="w-full bg-zinc-900 p-3 md:p-4 rounded-2xl overflow-hidden">
 
               <div className="w-full flex justify-center">
 
-                <div
-                  className="relative w-full"
-                  style={{
-                    aspectRatio:
-                      "1600 / 900",
-
-                    maxWidth:
-                      "1100px",
-                  }}
-                >
-
-                  <div
-                    className="absolute inset-0"
-                    style={{
-                      backgroundImage:
-                        "url('/pass-template.png')",
-
-                      backgroundSize:
-                        "100% 100%",
-
-                      backgroundRepeat:
-                        "no-repeat",
-                    }}
-                  >
-
-                    {/* ========================================
-                        STUDENT NAME
-                        ======================================== */}
-
-                    <div
-                      className="absolute flex items-center"
-                      style={{
-                        left: "5.5%",
-                        top: "43.5%",
-                        width: "47%",
-                        height: "15%",
-
-                        paddingLeft:
-                          "2.2%",
-
-                        paddingRight:
-                          "1%",
-
-                        fontSize:
-                          "clamp(20px, 3.2vw, 52px)",
-
-                        fontWeight: 800,
-
-                        color:
-                          "#111111",
-
-                        fontFamily:
-                          bubblegum.style
-                            .fontFamily,
-
-                        whiteSpace:
-                          "nowrap",
-
-                        overflow:
-                          "hidden",
-
-                        textOverflow:
-                          "ellipsis",
-                      }}
-                    >
-                      {generatedName}
-                    </div>
-
-                    {/* ========================================
-                        UNIQUE QR CODE
-                        ======================================== */}
-
-                    <div
-                      className="absolute flex items-center justify-center"
-                      style={{
-                        left: "64.3%",
-                        top: "61.8%",
-                        width: "7%",
-
-                        aspectRatio:
-                          "1 / 1",
-
-                        transform:
-                          "rotate(21.5deg) skewY(-5.6deg)",
-
-                        transformOrigin:
-                          "center",
-                      }}
-                    >
-
-                      <div
-                        style={{
-                          width:
-                            "min(145px, 100%)",
-
-                          aspectRatio:
-                            "1 / 1",
-
-                          backgroundColor:
-                            "#ffffff",
-
-                          padding:
-                            "6px",
-
-                          display:
-                            "flex",
-
-                          alignItems:
-                            "center",
-
-                          justifyContent:
-                            "center",
-
-                          boxSizing:
-                            "border-box",
-                        }}
-                      >
-
-                        <img
-                          src={qrCode}
-                          alt="Unique QR Code"
-                          style={{
-                            width:
-                              "100%",
-
-                            height:
-                              "100%",
-
-                            objectFit:
-                              "contain",
-
-                            display:
-                              "block",
-
-                            /*
-                             * Keep QR rendering
-                             * crisp in browser.
-                             */
-                            imageRendering:
-                              "pixelated",
-                          }}
-                        />
-
-                      </div>
-
-                    </div>
-
-                  </div>
-
-                </div>
+                <img
+                  src={passImage}
+                  alt="Generated VIBE.EXE 2.0 Pass"
+                  className="w-full h-auto rounded-lg block"
+                />
 
               </div>
 
             </div>
 
-            {/* ==================================================
-                PASS INFORMATION
-                ================================================== */}
+            {/* PASS INFORMATION */}
 
             <div className="mt-5 text-center">
 
@@ -1093,8 +909,8 @@ export default function Home() {
               </p>
 
               <p className="text-gray-600 text-xs mt-3">
-                The QR code contains a unique token linked to this
-                pass in the database.
+                The QR code contains a unique token linked
+                to this pass in the database.
               </p>
 
             </div>
