@@ -183,7 +183,7 @@ export async function POST(
 
         const mail =
             new MailComposer({
-                from: senderEmail,
+                from: `"VIBE.EXE 2.0 🎫" <${senderEmail}>`,
 
                 to: email,
 
