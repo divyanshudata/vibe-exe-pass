@@ -13,8 +13,8 @@ const bubblegum = Bubblegum_Sans({
 export default function Home() {
   const [name, setName] = useState("");
   const [rollNumber, setRollNumber] = useState("");
-  const [branch, setBranch] = useState("");
-  const [batch, setBatch] = useState("");
+  const [branch, setBranch] = useState("CSE");
+  const [batch, setBatch] = useState("CSE26");
   const [email, setEmail] = useState("");
 
   const [qrCode, setQrCode] = useState("");
@@ -769,43 +769,29 @@ export default function Home() {
 
             <div>
 
-              <label className="block text-sm text-gray-400 mb-2">
-                Branch
-              </label>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Branch
+                </label>
+                <input
+                  type="text"
+                  value="CSE"
+                  readOnly
+                  className="w-full rounded-lg border px-4 py-3 bg-gray-100 cursor-not-allowed"
+                />
+              </div>
 
-              <input
-                type="text"
-                value={branch}
-                onChange={(e) =>
-                  setBranch(
-                    e.target.value
-                  )
-                }
-                placeholder="Computer Science & Engineering"
-                className="w-full bg-black border border-zinc-700 rounded-lg px-4 py-3 outline-none focus:border-white"
-              />
-
-            </div>
-
-            {/* BATCH */}
-
-            <div>
-
-              <label className="block text-sm text-gray-400 mb-2">
-                Batch
-              </label>
-
-              <input
-                type="text"
-                value={batch}
-                onChange={(e) =>
-                  setBatch(
-                    e.target.value
-                  )
-                }
-                placeholder="CSE 26"
-                className="w-full bg-black border border-zinc-700 rounded-lg px-4 py-3 outline-none focus:border-white"
-              />
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Batch
+                </label>
+                <input
+                  type="text"
+                  value="CSE26"
+                  readOnly
+                  className="w-full rounded-lg border px-4 py-3 bg-gray-100 cursor-not-allowed"
+                />
+              </div>
 
             </div>
 
