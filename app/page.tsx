@@ -767,33 +767,6 @@ export default function Home() {
 
             {/* BRANCH */}
 
-            <div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Branch
-                </label>
-                <input
-                  type="text"
-                  value="CSE"
-                  readOnly
-                  className="w-full rounded-lg border px-4 py-3 bg-gray-100 cursor-not-allowed"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Batch
-                </label>
-                <input
-                  type="text"
-                  value="CSE26"
-                  readOnly
-                  className="w-full rounded-lg border px-4 py-3 bg-gray-100 cursor-not-allowed"
-                />
-              </div>
-
-            </div>
 
             {/* EMAIL */}
 
