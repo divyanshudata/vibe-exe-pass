@@ -415,8 +415,6 @@ export default function Home() {
     if (
       !name.trim() ||
       !rollNumber.trim() ||
-      !branch.trim() ||
-      !batch.trim() ||
       !email.trim()
     ) {
       setMessage(
@@ -654,8 +652,6 @@ export default function Home() {
       // Clear form.
       setName("");
       setRollNumber("");
-      setBranch("");
-      setBatch("");
       setEmail("");
 
     } catch (error) {
