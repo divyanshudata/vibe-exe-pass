@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Html5Qrcode } from "html5-qrcode";
 import { supabase } from "@/lib/supabase";
 
@@ -475,7 +476,7 @@ export default function ScanPage() {
                     </h2>
 
                     <p className="text-sm text-gray-500 mb-5">
-                        Point the camera at the QR code on the student's pass.
+                        Point the camera at the QR code on the student&apos;s pass.
                     </p>
 
 
@@ -767,12 +768,12 @@ export default function ScanPage() {
 
                 <div className="text-center mt-6">
 
-                    <a
+                    <Link
                         href="/"
                         className="text-sm text-gray-500 hover:text-white"
                     >
                         ← Back to Generate Pass
-                    </a>
+                    </Link>
 
                 </div>
 

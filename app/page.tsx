@@ -220,7 +220,9 @@ export default function Home() {
   // ============================================================
   const [name, setName] = useState("");
   const [rollNumber, setRollNumber] = useState("");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [branch, setBranch] = useState("CSE");
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [batch, setBatch] = useState("CSE26");
   const [email, setEmail] = useState("");
 
@@ -652,6 +654,7 @@ export default function Home() {
             </div>
             <div className="w-full bg-zinc-900 p-3 md:p-4 rounded-2xl overflow-hidden">
               <div className="w-full flex justify-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={passImage}
                   alt="Generated VIBE.EXE 2.0 Pass"

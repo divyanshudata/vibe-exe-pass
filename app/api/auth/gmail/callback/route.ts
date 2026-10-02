@@ -72,6 +72,7 @@ export async function GET(request: Request) {
             message: "Gmail authorization successful.",
             refreshToken: tokens.refresh_token,
         });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (error: any) {
         console.error("========== GMAIL OAUTH ERROR ==========");
         console.error(error?.message);
